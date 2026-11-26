@@ -1,0 +1,44 @@
+name: Publish skills
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+# 連続でマージされても同じタグを二重に作らないよう、publish は 1 つずつ実行する。
+concurrency:
+  group: publish-skills
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Publish skills with gh skill
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # gh skill publish fails with "No skills found" when the repository has no skills yet.
+          if [ -z "$(git ls-files -- 'SKILL.md' '**/SKILL.md')" ]; then
+            echo "No SKILL.md found. Skipping publish."
+            exit 0
+          fi
+
+          latest="$(git tag --list --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1 || true)"
+          if [ -z "$latest" ]; then
+            tag="v0.1.0"
+          else
+            IFS=. read -r major minor patch <<< "${latest#v}"
+            tag="v${major}.${minor}.$((patch + 1))"
+          fi
+          echo "Publishing ${tag} (latest: ${latest:-none})"
+
+          gh skill publish --tag "$tag"
