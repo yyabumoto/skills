@@ -1,0 +1,27 @@
+name: Validate skills
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Validate skills with gh skill
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # gh skill publish fails with "No skills found" when the repository has no skills yet.
+          if [ -z "$(git ls-files -- 'SKILL.md' '**/SKILL.md')" ]; then
+            echo "No SKILL.md found. Skipping validation."
+            exit 0
+          fi
+          gh skill publish --dry-run
